@@ -1,48 +1,75 @@
-version: '3.8'
+# Docker Compose configuration for forever-running Hoek demo server
 
 services:
-  app:
+  forever-server:
     build:
       context: .
-      dockerfile: Dockerfile
-    image: ghcr.io/atyagi9006/depre-demo:local
-    container_name: depre-demo-app
+      dockerfile: Dockerfile.forever
+    image: ghcr.io/atyagi9006/depre-demo:forever
+    container_name: depre-demo-forever
     ports:
       - "8080:8080"
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - PORT=8080
+      - HOST=0.0.0.0
+      - LOG_LEVEL=info
+      - LOG_FORMAT=json
+      - NODE_OPTIONS=--max-old-space-size=256
+    restart: always  # Always restart the container
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); })"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
-      timeout: 3s
+      timeout: 5s
       retries: 3
-      start_period: 5s
-    restart: unless-stopped
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
-      - app-network
-
-  # Development service with volume mounts for live reload
-  dev:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: builder
-    image: ghcr.io/atyagi9006/depre-demo:dev
-    container_name: depre-demo-dev
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=development
-      - PORT=3000
+      - forever-network
     volumes:
-      - .:/app
-      - /app/node_modules
-    command: node server.js
-    restart: unless-stopped
+      - ./logs:/app/logs  # Persist logs
+
+  # Optional monitoring with auto-restart
+  monitor:
+    image: alpine:latest
+    container_name: depre-demo-monitor
+    depends_on:
+      - forever-server
+    restart: always
+    command: |
+      sh -c "
+        while true; do
+          if wget -q --spider http://forever-server:8080/health; then
+            echo '[SUCCESS] Health check passed at: '`date`
+          else
+            echo '[ERROR] Health check failed at: '`date`
+          fi
+          sleep 60
+        done
+      "
     networks:
-      - app-network
+      - forever-network
 
 networks:
-  app-network:
+  forever-network:
     driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  logs:
+    driver: local

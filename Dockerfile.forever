@@ -1,0 +1,69 @@
+# Production-ready Dockerfile for forever-running server
+FROM node:18-alpine AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies for building
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# Production stage with minimal footprint
+FROM node:18-alpine
+
+# Install dumb-init for proper signal handling and curl for health checks
+RUN apk add --no-cache dumb-init curl && \
+    rm -rf /var/cache/apk/*
+
+# Add metadata
+LABEL org.opencontainers.image.source="https://github.com/atyagi9006/depre-demo"
+LABEL org.opencontainers.image.description="Forever-running Hoek demo server with deprecated v6.0.4"
+LABEL org.opencontainers.image.authors="atyagi9006"
+LABEL org.opencontainers.image.licenses="ISC"
+LABEL org.opencontainers.image.title="Hoek Demo Forever Server"
+LABEL org.opencontainers.image.version="1.0.0"
+
+# Create non-root user with specific UID/GID
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 -G nodejs
+
+# Set working directory
+WORKDIR /app
+
+# Copy dependencies from builder
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+
+# Copy application files
+COPY --chown=nodejs:nodejs package*.json ./
+COPY --chown=nodejs:nodejs server-forever.js ./
+COPY --chown=nodejs:nodejs *.js ./
+
+# Create logs directory
+RUN mkdir -p /app/logs && chown -R nodejs:nodejs /app/logs
+
+# Switch to non-root user
+USER nodejs
+
+# Environment variables for production
+ENV NODE_ENV=production \
+    PORT=8080 \
+    HOST=0.0.0.0 \
+    LOG_LEVEL=info \
+    LOG_FORMAT=json \
+    NODE_OPTIONS="--max-old-space-size=256"
+
+# Expose port
+EXPOSE 8080
+
+# Health check with retry logic
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
+# Run the forever server with optional garbage collection
+CMD ["node", "--expose-gc", "server-forever.js"]

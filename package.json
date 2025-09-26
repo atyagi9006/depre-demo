@@ -5,6 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
+    "start:forever": "node server-forever.js",
+    "start:prod": "NODE_ENV=production node --expose-gc server-forever.js",
     "demo": "node index.js",
     "vulnerability": "node vulnerability-demo.js",
     "test": "echo \"Error: no test specified\" && exit 1"
