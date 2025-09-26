@@ -1,0 +1,27 @@
+{
+  "name": "depre-demo",
+  "version": "1.0.0",
+  "description": "this a demo project for deprecation",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "demo": "node index.js",
+    "vulnerability": "node vulnerability-demo.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/atyagi9006/depre-demo.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/atyagi9006/depre-demo/issues"
+  },
+  "homepage": "https://github.com/atyagi9006/depre-demo#readme",
+  "dependencies": {
+    "hoek": "^6.0.4"
+  }
+}
